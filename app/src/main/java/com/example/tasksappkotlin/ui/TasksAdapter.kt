@@ -9,7 +9,8 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.tasksappkotlin.data.Task
 import com.example.tasksappkotlin.databinding.TaskItemLayoutBinding
 
-class TasksAdapter : ListAdapter<Task, TasksAdapter.TasksViewHolder>(DiffCallback()) {
+class TasksAdapter(private val listener: OnItemClickListener) :
+    ListAdapter<Task, TasksAdapter.TasksViewHolder>(DiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): TasksViewHolder {
         val binding =
@@ -23,8 +24,28 @@ class TasksAdapter : ListAdapter<Task, TasksAdapter.TasksViewHolder>(DiffCallbac
         holder.bind(currentItem)
     }
 
-    class TasksViewHolder(private val binding: TaskItemLayoutBinding) :
+    inner class TasksViewHolder(private val binding: TaskItemLayoutBinding) :
         RecyclerView.ViewHolder(binding.root) {
+
+        init {
+            binding.apply {
+                root.setOnClickListener {
+                    val position = adapterPosition
+                    if (position != RecyclerView.NO_POSITION) {
+                        val task = getItem(position)
+                        listener.onItemClick(task)
+                    }
+                }
+
+                checkBoxCompleted.setOnClickListener {
+                    val position = adapterPosition
+                    if (position != RecyclerView.NO_POSITION) {
+                        val task = getItem(position)
+                        listener.onCheckBoxClicked(task, checkBoxCompleted.isChecked)
+                    }
+                }
+            }
+        }
 
         fun bind(task: Task) {
             binding.apply {
@@ -36,7 +57,12 @@ class TasksAdapter : ListAdapter<Task, TasksAdapter.TasksViewHolder>(DiffCallbac
         }
     }
 
-    class DiffCallback : DiffUtil.ItemCallback<Task>(){
+    interface OnItemClickListener {
+        fun onItemClick(task: Task)
+        fun onCheckBoxClicked(task: Task, isChecked: Boolean)
+    }
+
+    class DiffCallback : DiffUtil.ItemCallback<Task>() {
         override fun areItemsTheSame(oldItem: Task, newItem: Task) = oldItem.id == newItem.id
 
         override fun areContentsTheSame(oldItem: Task, newItem: Task) = oldItem == newItem
