@@ -1,9 +1,8 @@
 package com.example.tasksappkotlin.vm
 
+import androidx.hilt.Assisted
 import androidx.hilt.lifecycle.ViewModelInject
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.asLiveData
-import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.*
 import com.example.tasksappkotlin.data.PreferencesManager
 import com.example.tasksappkotlin.data.SortOrder
 import com.example.tasksappkotlin.data.Task
@@ -18,13 +17,14 @@ import kotlinx.coroutines.launch
 class TasksViewModel @ViewModelInject constructor(
     private val taskDao: TaskDao,
     private val preferencesManager: PreferencesManager,
+    @Assisted private val state: SavedStateHandle
 ) : ViewModel() {
 
-    val searchQuery = MutableStateFlow("")
+    val searchQuery = state.getLiveData("searchQuery", "")
     val preferencesFlow = preferencesManager.preferencesFlow
 
     private val taskFlow = combine(
-        searchQuery,
+        searchQuery.asFlow(),
         preferencesFlow
     ) { query, filterPreferences ->
         Pair(query, filterPreferences)
@@ -45,8 +45,8 @@ class TasksViewModel @ViewModelInject constructor(
         preferencesManager.updateHideCompleted(hideCompleted)
     }
 
-    fun onTaskSelected(task: Task) {
-
+    fun onTaskSelected(task: Task) = viewModelScope.launch {
+        taskEventChannel.send(TaskEvent.NavigateToEditTaskScreen(task))
     }
 
     fun onTaskCheckedChanged(task: Task, checked: Boolean) {
@@ -62,7 +62,29 @@ class TasksViewModel @ViewModelInject constructor(
         }
     }
 
+    fun onAddNewTaskClicked() = viewModelScope.launch {
+        taskEventChannel.send(TaskEvent.NavigateToAddTaskScreen)
+    }
+
+    fun onUndoDeleteClicked(task: Task) = viewModelScope.launch {
+        taskDao.insert(task)
+    }
+
+    fun showAddEditResultMessage(result: String) = viewModelScope.launch {
+        if (result.isNotBlank()) {
+            taskEventChannel.send(TaskEvent.ShowAddEditResultMessage(result))
+        }
+    }
+
+    fun onDeleteAllCompletedClicked() = viewModelScope.launch {
+        taskEventChannel.send(TaskEvent.NavigateToDeleteAllCompletedScreen)
+    }
+
     sealed class TaskEvent {
+        object NavigateToAddTaskScreen : TaskEvent()
+        data class NavigateToEditTaskScreen(val task: Task) : TaskEvent()
         data class ShowUndoDeleteTaskMessage(val task: Task) : TaskEvent()
+        data class ShowAddEditResultMessage(val message: String) :TaskEvent()
+        object NavigateToDeleteAllCompletedScreen : TaskEvent()
     }
 }
